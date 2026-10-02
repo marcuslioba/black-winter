@@ -1,0 +1,18 @@
+const fs = require('fs'), vm = require('vm'), path = require('path');
+const dir = process.argv[2];
+const noop = () => {}; const L2 = {};
+const ctxProxy = new Proxy({}, {get: (t, k) => k === 'measureText' ? () => ({width: 50}) : k === 'createRadialGradient' || k === 'createLinearGradient' ? () => ({addColorStop: noop}) : (k in t ? t[k] : noop), set: (t, k, v) => { t[k] = v; return true; }});
+const el = () => ({style: {}, dataset: {}, classList: {add: noop, remove: noop}, getContext: () => ctxProxy, querySelector: () => null, querySelectorAll: () => [], addEventListener: noop, innerHTML: '', width: 960, height: 540});
+const els = {};
+const doc = {createElement: () => el(), getElementById: id => els[id] || (els[id] = el()), addEventListener: noop, activeElement: null};
+const store = {};
+const sandbox = {
+  document: doc, window: null, console, Math, Date, performance: {now: () => Date.now()},
+  localStorage: {getItem: k => store[k] || null, setItem: (k, v) => store[k] = v, removeItem: k => delete store[k]},
+  navigator: {getGamepads: () => []}, setInterval: noop, setTimeout, requestAnimationFrame: noop,
+  addEventListener: (ev,fn)=>{(L2[ev]=L2[ev]||[]).push(fn)}, Event: function () {}, AudioContext: undefined, Set, Map
+};
+sandbox.__L2 = L2; sandbox.window = sandbox; sandbox.globalThis = sandbox;
+const ctx = vm.createContext(sandbox);
+const files = ['data', 'audio', 'input', 'player', 'level', 'game', 'art', 'render', 'ui'];
+let code = files.map(f => fs.readFileSync(path.join(dir, 'js', f + '.js'), 'utf8')).join('\n;\n');
